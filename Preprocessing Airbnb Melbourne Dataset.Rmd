@@ -1,6 +1,6 @@
 ---
 title: "Preprocessing Airbnb Melbourne Dataset"
-author: " Yoga Pratama & Benjamin Huang"
+author: "Yoga Pratama & Benjamin Huang"
 output:
   html_document:
     df_print: paged
@@ -9,14 +9,13 @@ output:
 
 ## Required Packages 
 
-```{r message = FALSE}
+```{r message = FALSE, warning = FALSE}
 library(dplyr)
 library(tidyr)
 library(readr)
 library(rvest)
 library(stringr)
 library(lubridate)
-library(editrules)
 library(forecast)
 ```
 
@@ -33,9 +32,6 @@ For this project, open source data on Airbnb, along with data from a Wikipedia t
 * Rules were also defined and applied to check for any inconsistencies. For certain rule violations, observations were removed, while for other rule violations, observations were imputed. 
 * The appropriate variables were scanned for outliers via Tukey’s method based on the distributions of the variables, which were then imputed due to the number of outliers that were found. Other methods were also briefly discussed.
 * For the last step, one variable was chosen to be transformed and normalised in order to apply a z-score outlier detection method.
-
-
-
 
 ## Data 
 
@@ -56,7 +52,6 @@ The main dataset used for this project is the "Melbourne Airbnb Open Data" as ho
 
 Below, the Airbnb dataset is imported and subset according to the varibles chosen above:
 ```{r}
-setwd("/Users/BenjaminHuang/Ben's Folder/Academic/Master of Analytics/MATH2349 - Data Preprocessing/Assignment 3")
 
 airbnb_orig <- read.csv("listings_dec18.csv", stringsAsFactors = F)
 airbnb <- airbnb_orig[,c("id","host_since","street","neighbourhood_cleansed","property_type","accommodates",
@@ -190,6 +185,11 @@ head(airbnb_LGA)
 ```
 
 
+```{r}
+airbnb_LGA <- airbnb_LGA %>% separate(location, into = c("Suburb", "State", "Country"), sep = ",")
+head(airbnb_LGA)
+
+```
 
 
 ##	Scan I 
@@ -213,7 +213,40 @@ special <- function(x){if (is.numeric(x)) sum(is.infinite(x) | is.nan(x))}
 sapply(airbnb_LGA, special)
 ```
 \
+Check inconsistency from separated variable, "Suburb", "State", and "Country"
+
+```{r}
+unique (airbnb_LGA$Suburb)
+
+```
+
+change all observation to lower case using stringr function
+
+```{r}
+airbnb_LGA$Suburb <- str_to_lower(airbnb_LGA$Suburb)
+```
+
+
+```{r}
+unique (airbnb_LGA$State)
+unique (airbnb_LGA$Country)
+```
+
+The actual airbnb location is in Victoria and Australia, so other than that will be changed to "VIC" and "AU"
+
+```{r}
+airbnb_LGA$State <- replace(airbnb_LGA$State, airbnb_LGA$State != "VIC", "VIC")
+
+airbnb_LGA$Country <- replace(airbnb_LGA$Country, airbnb_LGA$Country != "AU", "AU")
+```
+
+\
 Using the editrules package, the following code sets some basic rules to scan for inconsistencies. The rules defined below are to make sure that no numerical value is a negative number. For the price variable however, the rule makes sure that no value is below 5 as for the purpose of this project, any Airbnb accommodation for less than $5 per night is considered a mistake or is not a legitimate listing. There are 22 violations under the rule number 1 (price >= 5), those of which can be seen below:
+
+```{r warning=FALSE, message=FALSE}
+library(editrules)
+```
+
 ```{r}
 rules <- editset(c("price >= 5",
                    "price_per_guest >= 0",
@@ -225,6 +258,7 @@ rules
 summary(violatedEdits(rules,airbnb_LGA))
 which(violatedEdits(rules,airbnb_LGA))
 ```
+
 \
 The observations with violated rules are removed, resulting in zero violated rules:
 ```{r}
@@ -245,9 +279,6 @@ airbnb_LGA <- airbnb_LGA %>%
 
 summary(as.numeric(airbnb_LGA$guests_included) > as.numeric(airbnb_LGA$accommodates))
 ```
-
-
-
 
 ##	Scan II
 
